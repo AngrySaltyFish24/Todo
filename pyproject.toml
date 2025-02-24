@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "todo"
+description = "Simple todo application with a web interface"
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Natural Language :: English",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.13",
+]
+version = "0.1.0"
+
+requires-python = ">=3.13"
+authors = [
+  { name = "James Rand", email = "jamesrand@protonmail.com" },
+]
+maintainers = [
+  { name = "James Rand", email = "jamesrand@protonmail.com" },
+]
+dependencies = [
+    "flask==3.1.0",
+    "jsonschema==4.23.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy==1.15.0",
+    "pytest==8.3.4",
+    "types-jsonschema==4.23.0",
+    "black==25.1.0",
+    "isort==6.0.0",
+    "pytest-cov==6.0.0"
+]
+
+[project.scripts]
+todo = "todo.controllers.web_controller:main"
+
+[tool.setuptools.packages.find]
+include = ["*"]
+
+[tool.black]
+exclude = '''/( .history | .git | build | .mypy_cache)/'''
+
+[tool.isort]
+profile = "black"
