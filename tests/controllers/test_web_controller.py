@@ -1,9 +1,10 @@
 from collections.abc import Generator
+from datetime import datetime
 
 import flask
 import flask.testing
-import pytest
 import mock
+import pytest
 
 from todo.controllers import web_controller
 from todo.core import domain, interactor
@@ -53,12 +54,11 @@ class TestAddTask:
     def test_add_task(
         self, client: flask.testing.FlaskClient, mock_interactor: mock.Mock
     ):
+        mock_interactor.add_task.return_value = domain.Task(
+            "Test", datetime.fromtimestamp(1740762476)
+        )
+
         resp = client.post("/v1/add_task", json={"name": "test"})
         assert resp.status_code == 200
 
         mock_interactor.add_task.assert_called_once_with(domain.TaskDraft("test"))
-
-
-def test_dummy(client: flask.testing.FlaskClient):
-    resp = client.get("/v1/hello")
-    assert b"Hello World" in resp.data

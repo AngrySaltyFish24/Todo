@@ -1,15 +1,24 @@
-import sqlite3
 import abc
-from typing import Final, Mapping, override, Any
+import sqlite3
+from collections.abc import Mapping
+from typing import Any, Final, override
+
+import pypika
+
+# from pypika.enums import SqlTypes
+import pypika.enums
+import pypika.functions
 
 from todo.core import domain, interactor
 
 
-import pypika
-
-
 class TablesMixin:
     TASK: Final[pypika.Table] = pypika.Table("Task")
+
+
+class ParamMixin:
+    def _format_name_param(self, field_name: str) -> str:
+        return f":{field_name}"
 
 
 class QueryAssembler(abc.ABC):
@@ -20,28 +29,33 @@ class QueryAssembler(abc.ABC):
 class CreateTaskTableAssembler(QueryAssembler, TablesMixin):
     @override
     def assemble_query(self) -> str:
-        query = pypika.Query.create_table(self.TASK).columns(
-            pypika.Column("id", "INTEGER PRIMARY KEY", nullable=False),
-            pypika.Column("name", "TEXT", nullable=False),
+        query = (
+            pypika.Query.create_table(self.TASK)
+            .columns(
+                pypika.Column("id", "INTEGER PRIMARY KEY", nullable=False),
+                pypika.Column("name", "TEXT", nullable=False),
+                pypika.Column(
+                    "date_added",
+                    pypika.enums.SqlTypes.TIMESTAMP,
+                    default=pypika.functions.CurTimestamp(),
+                ),
+            )
+            .if_not_exists()
         )
 
         return str(query)
 
 
-class AddTaskAssembler(QueryAssembler, TablesMixin):
-
-    def _format_name_param(self, field_name: str) -> str:
-        return f":{field_name}"
-
+class AddTaskAssembler(QueryAssembler, TablesMixin, ParamMixin):
     @override
     def assemble_query(self) -> str:
         query = (
             pypika.Query.into(self.TASK)
             .columns("name")
-            .insert(pypika.Parameter(self._format_name_param("name")))
+            .insert(pypika.NamedParameter("name"))
         )
 
-        return str(query)
+        return str(query) + " RETURNING *"
 
 
 class DBGateway:
@@ -51,20 +65,23 @@ class DBGateway:
         self.uri: Final[str] = connection_uri
 
     def _create_connection(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.uri)
+        conn = sqlite3.connect(self.uri)
+        conn.row_factory = sqlite3.Row
+        return conn
 
     # TODO: Seperate into read and write
     def _execute_query(
         self, query: str, params: Mapping[str, str | int] | None = None
-    ) -> list[Any]:
+    ) -> list[sqlite3.Row]:
         if params is None:
             params = {}
 
         conn = self._create_connection()
         cursor = conn.cursor()
         cursor = cursor.execute(query, params)
+        results = cursor.fetchall()
         conn.commit()
-        return cursor.fetchall()
+        return results
 
     def create_tables(self) -> None:
         table_assemblers = [CreateTaskTableAssembler()]
@@ -72,10 +89,11 @@ class DBGateway:
         for assembler in table_assemblers:
             _ = self._execute_query(assembler.assemble_query())
 
-    def add_task(self, task_draft: domain.TaskDraft) -> None:
+    def add_task(self, task_draft: domain.TaskDraft) -> sqlite3.Row:
         query = AddTaskAssembler().assemble_query()
         params = {"name": task_draft.name}
-        _ = self._execute_query(query, params)
+        results = self._execute_query(query, params)
+        return results[0]
 
 
 class TaskDBRepo(interactor.TaskRepo):
@@ -83,8 +101,9 @@ class TaskDBRepo(interactor.TaskRepo):
         self.gateway: Final[DBGateway] = gateway
 
     @override
-    def add_task(self, task_draft: domain.TaskDraft) -> None:
-        self.gateway.add_task(task_draft)
+    def add_task(self, task_draft: domain.TaskDraft) -> domain.Task:
+        inserted_row = self.gateway.add_task(task_draft)
+        return domain.make_task(task_draft, inserted_row["date_added"])
 
 
 class TaskDBRepoBuilder:

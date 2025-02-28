@@ -33,6 +33,7 @@ dev = [
     "mypy==1.15.0",
     "pytest==8.3.4",
     "types-jsonschema~=4.23.0",
+    "types-mock~=5.1.0",
     "black==25.1.0",
     "isort==6.0.0",
     "pytest-cov==6.0.0"

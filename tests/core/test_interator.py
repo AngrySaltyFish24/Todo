@@ -1,6 +1,7 @@
-from todo.core import interactor, domain
-import pytest
 import mock
+import pytest
+
+from todo.core import domain, interactor
 
 
 def make_test_interator(mock_task_repo: None | interactor.TaskRepo = None):

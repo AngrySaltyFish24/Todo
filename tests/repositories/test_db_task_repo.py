@@ -1,6 +1,8 @@
 import pathlib
 import sqlite3
+
 import pytest
+
 from todo.core import domain
 from todo.repositories import db_task_repo
 
@@ -69,14 +71,16 @@ class TestRepo:
 
     def test_add_task(self, repo: db_task_repo.TaskDBRepo, test_cursor: sqlite3.Cursor):
         given = domain.TaskDraft("test_name")
-        repo.add_task(given)
+        observed_return = repo.add_task(given)
+        observed_in_database = test_cursor.execute(
+            "SELECT id, name FROM TASK"
+        ).fetchall()
 
-        observed = test_cursor.execute("SELECT * FROM TASK").fetchall()
-        assert [(1, "test_name")] == observed
+        assert [(1, "test_name")] == observed_in_database
+        assert isinstance(observed_return, domain.Task)
 
 
 class TestQueryBuilders:
-    # TODO: Maybe refactor to not use fixture
     @pytest.fixture
     def test_data(self, request: pytest.FixtureRequest):
         return request.param["assembler"], request.param["expected"]
@@ -88,15 +92,16 @@ class TestQueryBuilders:
                 "id": "Task Table Create",
                 "assembler": db_task_repo.CreateTaskTableAssembler(),
                 # fmt: off
-                "expected": 'CREATE TABLE "Task" ' \
+                "expected": 'CREATE TABLE IF NOT EXISTS "Task" ' \
                          +  '("id" INTEGER PRIMARY KEY NOT NULL,' \
-                         +  '"name" TEXT NOT NULL)',
+                         +  '"name" TEXT NOT NULL,' \
+                         +  '"date_added" TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'
                 # fmt: on
             },
             {
                 "id": "Add Task",
                 "assembler": db_task_repo.AddTaskAssembler(),
-                "expected": 'INSERT INTO "Task" ("name") VALUES (:name)',
+                "expected": 'INSERT INTO "Task" ("name") VALUES (:name) RETURNING *',
             },
         ],
         indirect=True,

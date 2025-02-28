@@ -1,17 +1,17 @@
+import dataclasses
+import enum
 from collections.abc import Mapping
-from enum import Enum
 from typing import Any
 
 import flask
 import jsonschema
 
-from todo.core import domain, interactor
-
 from todo import repositories
+from todo.core import domain, interactor
 
 
 # TODO: Use dictionary instead of enum
-class Schema(Enum):
+class Schema(enum.Enum):
     ADD_TASK = {
         "type": "object",
         "properties": {"name": {"type": "string"}},
@@ -38,7 +38,7 @@ def create_app(_interactor: interactor.Interactor) -> flask.Flask:
     app = flask.Flask(__name__)
 
     @app.route("/v1/add_task", methods=["POST"])
-    def add_task() -> tuple[str, int]:
+    def add_task() -> tuple[str, int] | flask.Response:
         try:
             payload: Mapping[str, str] = get_validated_payload(Schema.ADD_TASK)
         except NoJsonError:
@@ -47,12 +47,10 @@ def create_app(_interactor: interactor.Interactor) -> flask.Flask:
             return err.message, 400
 
         task_draft = domain.TaskDraft(payload["name"])
-        _interactor.add_task(task_draft)
-        return "Hello World", 200
+        created_task = _interactor.add_task(task_draft)
+        created_task = dataclasses.asdict(created_task)
 
-    @app.route("/v1/hello")
-    def hello() -> str:
-        return "Hello World"
+        return flask.jsonify(created_task)
 
     return app
 
