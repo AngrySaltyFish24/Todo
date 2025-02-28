@@ -5,6 +5,10 @@ from typing import Any
 import flask
 import jsonschema
 
+from todo.core import domain, interactor
+
+from todo import repositories
+
 
 # TODO: Use dictionary instead of enum
 class Schema(Enum):
@@ -30,7 +34,7 @@ def get_validated_payload(schema: Schema) -> Mapping[str, Any]:
     return payload
 
 
-def create_app() -> flask.Flask:
+def create_app(_interactor: interactor.Interactor) -> flask.Flask:
     app = flask.Flask(__name__)
 
     @app.route("/v1/add_task", methods=["POST"])
@@ -42,6 +46,8 @@ def create_app() -> flask.Flask:
         except jsonschema.ValidationError as err:
             return err.message, 400
 
+        task_draft = domain.TaskDraft(payload["name"])
+        _interactor.add_task(task_draft)
         return "Hello World", 200
 
     @app.route("/v1/hello")
@@ -52,7 +58,10 @@ def create_app() -> flask.Flask:
 
 
 def main() -> None:
-    app = create_app()
+    repo_builder = repositories.TaskDBRepoBuilder()
+    repo_builder.build_gateway("database.db")
+    _interactor = interactor.Interactor(repo_builder.build())
+    app = create_app(_interactor)
     app.run()
 
 
