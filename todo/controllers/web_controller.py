@@ -1,13 +1,17 @@
+import dataclasses
+import enum
 from collections.abc import Mapping
-from enum import Enum
 from typing import Any
 
 import flask
 import jsonschema
 
+from todo import repositories
+from todo.core import domain, interactor
+
 
 # TODO: Use dictionary instead of enum
-class Schema(Enum):
+class Schema(enum.Enum):
     ADD_TASK = {
         "type": "object",
         "properties": {"name": {"type": "string"}},
@@ -30,11 +34,11 @@ def get_validated_payload(schema: Schema) -> Mapping[str, Any]:
     return payload
 
 
-def create_app() -> flask.Flask:
+def create_app(_interactor: interactor.Interactor) -> flask.Flask:
     app = flask.Flask(__name__)
 
     @app.route("/v1/add_task", methods=["POST"])
-    def add_task() -> tuple[str, int]:
+    def add_task() -> tuple[str, int] | flask.Response:
         try:
             payload: Mapping[str, str] = get_validated_payload(Schema.ADD_TASK)
         except NoJsonError:
@@ -42,17 +46,20 @@ def create_app() -> flask.Flask:
         except jsonschema.ValidationError as err:
             return err.message, 400
 
-        return "Hello World", 200
+        task_draft = domain.TaskDraft(payload["name"])
+        created_task = _interactor.add_task(task_draft)
+        created_task = dataclasses.asdict(created_task)
 
-    @app.route("/v1/hello")
-    def hello() -> str:
-        return "Hello World"
+        return flask.jsonify(created_task)
 
     return app
 
 
 def main() -> None:
-    app = create_app()
+    repo_builder = repositories.TaskDBRepoBuilder()
+    repo_builder.build_gateway("database.db")
+    _interactor = interactor.Interactor(repo_builder.build())
+    app = create_app(_interactor)
     app.run()
 
 
