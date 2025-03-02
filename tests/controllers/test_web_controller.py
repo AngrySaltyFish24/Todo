@@ -6,17 +6,18 @@ import flask.testing
 import mock
 import pytest
 
+from todo import core
 from todo.controllers import web_controller
-from todo.core import domain, interactor
+from todo.core import domain
 
 
 @pytest.fixture
 def mock_interactor():
-    return mock.Mock(spec_set=interactor.Interactor)
+    return mock.Mock(spec_set=core.Interactor)
 
 
 @pytest.fixture()
-def app(mock_interactor: interactor.Interactor) -> Generator[flask.Flask, None, None]:
+def app(mock_interactor: core.Interactor) -> Generator[flask.Flask, None, None]:
     app = web_controller.create_app(mock_interactor)
     app.config.update(
         {

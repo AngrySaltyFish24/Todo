@@ -1,15 +1,14 @@
 import abc
 import sqlite3
 from collections.abc import Mapping
-from typing import Any, Final, override
+from typing import Final, override
 
 import pypika
-
-# from pypika.enums import SqlTypes
 import pypika.enums
 import pypika.functions
 
-from todo.core import domain, interactor
+from todo import core
+from todo.core import domain
 
 
 class TablesMixin:
@@ -76,6 +75,7 @@ class DBGateway:
         if params is None:
             params = {}
 
+        # TODO: Add error handling and rollback
         conn = self._create_connection()
         cursor = conn.cursor()
         cursor = cursor.execute(query, params)
@@ -96,14 +96,14 @@ class DBGateway:
         return results[0]
 
 
-class TaskDBRepo(interactor.TaskRepo):
+class TaskDBRepo(core.TaskRepo):
     def __init__(self, gateway: DBGateway) -> None:
         self.gateway: Final[DBGateway] = gateway
 
     @override
     def add_task(self, task_draft: domain.TaskDraft) -> domain.Task:
         inserted_row = self.gateway.add_task(task_draft)
-        return domain.make_task(task_draft, inserted_row["date_added"])
+        return domain.make_task_from_draft(task_draft, inserted_row["date_added"])
 
 
 class TaskDBRepoBuilder:

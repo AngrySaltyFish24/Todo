@@ -6,11 +6,11 @@ from typing import Any
 import flask
 import jsonschema
 
-from todo import repositories
-from todo.core import domain, interactor
+from todo import core, repositories
+from todo.core import domain
 
 
-# TODO: Use dictionary instead of enum
+# TODO: Change to dictionary with endpoints as keys
 class Schema(enum.Enum):
     ADD_TASK = {
         "type": "object",
@@ -24,7 +24,7 @@ class NoJsonError(Exception):
     pass
 
 
-# TODO: Make recursive type to avoid Any
+# TODO: Run this on every post with `before_request` and schema dictionary
 def get_validated_payload(schema: Schema) -> Mapping[str, Any]:
     if not flask.request.is_json:
         raise NoJsonError
@@ -34,7 +34,7 @@ def get_validated_payload(schema: Schema) -> Mapping[str, Any]:
     return payload
 
 
-def create_app(_interactor: interactor.Interactor) -> flask.Flask:
+def create_app(_interactor: core.Interactor) -> flask.Flask:
     app = flask.Flask(__name__)
 
     @app.route("/v1/add_task", methods=["POST"])
@@ -48,9 +48,9 @@ def create_app(_interactor: interactor.Interactor) -> flask.Flask:
 
         task_draft = domain.TaskDraft(payload["name"])
         created_task = _interactor.add_task(task_draft)
-        created_task = dataclasses.asdict(created_task)
+        created_task_dict = dataclasses.asdict(created_task)
 
-        return flask.jsonify(created_task)
+        return flask.jsonify(created_task_dict)
 
     return app
 
@@ -58,7 +58,7 @@ def create_app(_interactor: interactor.Interactor) -> flask.Flask:
 def main() -> None:
     repo_builder = repositories.TaskDBRepoBuilder()
     repo_builder.build_gateway("database.db")
-    _interactor = interactor.Interactor(repo_builder.build())
+    _interactor = core.Interactor(repo_builder.build())
     app = create_app(_interactor)
     app.run()
 

@@ -13,5 +13,5 @@ class TaskDraft:
     name: str
 
 
-def make_task(draft: TaskDraft, date_added: datetime) -> Task:
+def make_task_from_draft(draft: TaskDraft, date_added: datetime) -> Task:
     return Task(draft.name, date_added)
